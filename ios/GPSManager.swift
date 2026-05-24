@@ -1,0 +1,4 @@
+class GPSManager : NSObject {
+
+
+}
