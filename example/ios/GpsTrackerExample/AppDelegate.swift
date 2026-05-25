@@ -22,6 +22,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     reactNativeFactory = factory
 
     window = UIWindow(frame: UIScreen.main.bounds)
+    
+    GPSManager.shared.requestPermission()
+    GPSManager.shared.startTracking()
 
     factory.startReactNative(
       withModuleName: "GpsTrackerExample",
