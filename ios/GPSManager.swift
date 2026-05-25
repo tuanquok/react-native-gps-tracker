@@ -26,10 +26,14 @@ public class GPSManager:
 CLLocationManagerDelegate {
   
   public static let shared = GPSManager()
+  private static let trackingEnabledKey = "GpsTracker.trackingEnabled"
   
   private let locationManager = CLLocationManager()
   
-  private var isTracking = false
+  private var isTracking =
+    UserDefaults.standard.bool(
+      forKey: GPSManager.trackingEnabledKey
+    )
   
   public override init() {
     
@@ -41,6 +45,14 @@ CLLocationManagerDelegate {
   
   public func requestPermission( ) {
     locationManager.requestAlwaysAuthorization()
+  }
+
+  public func restoreTrackingIfNeeded() {
+    guard isTracking else {
+      return
+    }
+    
+    startLocationMonitoring()
   }
   
   
@@ -152,6 +164,17 @@ CLLocationManagerDelegate {
     
     isTracking = true
     
+    UserDefaults.standard.set(
+      true,
+      forKey: GPSManager.trackingEnabledKey
+    )
+    
+    startLocationMonitoring()
+    
+  }
+  
+  private func startLocationMonitoring() {
+    
     locationManager
       .desiredAccuracy =
     kCLLocationAccuracyBest
@@ -170,7 +193,6 @@ CLLocationManagerDelegate {
     print("START SIGNIFICANT TRACKING")
     locationManager
       .startMonitoringSignificantLocationChanges()
-    
   }
   
   public func stopTracking() {
@@ -183,8 +205,14 @@ CLLocationManagerDelegate {
     isTracking =
     
     false
+    
+    UserDefaults.standard.set(
+      false,
+      forKey: GPSManager.trackingEnabledKey
+    )
+    
     locationManager
-      .stopUpdatingLocation()
+      .stopMonitoringSignificantLocationChanges()
     print(
       
       "STOP TRACKING"
