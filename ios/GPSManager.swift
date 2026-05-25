@@ -2,19 +2,36 @@ import Foundation
 
 import CoreLocation
 
-class GPSManager:
+
+struct TrackingData {
+  
+  let lat: Double
+  
+  let lng: Double
+  
+  let speed: Double
+  
+  let course: Double
+  
+  let accuracy: Double
+  
+  let timestamp: Date
+  
+}
+@objcMembers
+public class GPSManager:
                     
   NSObject,
 
 CLLocationManagerDelegate {
   
-  static let shared = GPSManager()
+  public static let shared = GPSManager()
   
-  private let locationManager =
+  private let locationManager = CLLocationManager()
   
-  CLLocationManager()
+  private var isTracking = false
   
-  override init() {
+  public override init() {
     
     super.init()
     
@@ -22,12 +39,12 @@ CLLocationManagerDelegate {
     
   }
   
-  func requestPermission( ) {
+  public func requestPermission( ) {
     locationManager.requestAlwaysAuthorization()
   }
   
   
-  func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+  public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     switch manager.authorizationStatus {
       
     case .authorizedAlways:
@@ -57,11 +74,11 @@ CLLocationManagerDelegate {
     }
   }
   
-  func getCurrentLocation( ) {
+  public func getCurrentLocation( ) {
     locationManager.requestLocation()
   }
   
-  func locationManager(
+  public func locationManager(
     _ manager:
     CLLocationManager,
     
@@ -69,26 +86,43 @@ CLLocationManagerDelegate {
     locations:
     [CLLocation]
   ) {
-    
     guard let location =
+            
             locations.last else {
       
       return
+      
     }
     
     print(
-      "LAT:",
-      location.coordinate.latitude
-    )
-    
-    print(
-      "LNG:",
-      location.coordinate.longitude
+      
+   """
+   
+   ==================
+   
+   WAKE APP
+   
+   TIME:
+   
+   \(Date())
+   
+   LAT:
+   
+   \(location.coordinate.latitude)
+   
+   LNG:
+   
+   \(location.coordinate.longitude)
+   
+   ==================
+   
+   """
+   
     )
     
   }
   
-  func locationManager(
+  public func locationManager(
     _ manager:
     CLLocationManager,
     
@@ -103,7 +137,20 @@ CLLocationManagerDelegate {
   }
   //Chỉ update khi di chuyển > 10m
   
-  func startTracking() {
+  public func startTracking() {
+    guard !isTracking else {
+      
+      print(
+        
+        "ALREADY TRACKING"
+        
+      )
+      
+      return
+      
+    }
+    
+    isTracking = true
     
     locationManager
       .desiredAccuracy =
@@ -120,16 +167,29 @@ CLLocationManagerDelegate {
       .pausesLocationUpdatesAutomatically
     = false
     
+    print("START SIGNIFICANT TRACKING")
     locationManager
-      .startUpdatingLocation()
+      .startMonitoringSignificantLocationChanges()
     
   }
   
-  func stopTracking() {
+  public func stopTracking() {
+    guard isTracking else {
+      
+      return
+      
+    }
     
+    isTracking =
+    
+    false
     locationManager
       .stopUpdatingLocation()
-    
+    print(
+      
+      "STOP TRACKING"
+      
+    )
   }
+  
 }
-

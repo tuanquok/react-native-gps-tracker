@@ -1,11 +1,8 @@
 #import "GpsTracker.h"
+#import <CoreLocation/CoreLocation.h>
+#import "GpsTracker-Swift.h"
 
 @implementation GpsTracker
-- (NSNumber *)multiply:(double)a b:(double)b {
-    NSNumber *result = @(a * b);
-
-    return result;
-}
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
@@ -16,6 +13,26 @@
 + (NSString *)moduleName
 {
   return @"GpsTracker";
+}
+
+- (void)requestPermission
+{
+  [[GPSManager shared] requestPermission];
+}
+
+- (void)startTracking
+{
+  [[GPSManager shared] startTracking];
+}
+
+- (void)stopTracking
+{
+  [[GPSManager shared] stopTracking];
+}
+
+- (void)getCurrentLocation
+{
+  [[GPSManager shared] getCurrentLocation];
 }
 
 @end

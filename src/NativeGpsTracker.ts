@@ -1,7 +1,13 @@
-import { TurboModuleRegistry, type TurboModule } from 'react-native';
+import { type TurboModule, TurboModuleRegistry } from 'react-native';
 
 export interface Spec extends TurboModule {
-  multiply(a: number, b: number): number;
+  requestPermission(): void;
+
+  startTracking(): void;
+
+  stopTracking(): void;
+
+  getCurrentLocation(): void;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('GpsTracker');
