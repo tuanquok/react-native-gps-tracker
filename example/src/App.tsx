@@ -9,7 +9,17 @@ import {
 export default function App() {
   useEffect(() => {
     configure({
+      android: {
+        intervalMs: 3000,
+        distanceFilterMeters: 0,
+        providers: ['gps', 'network'],
+        writeLastKnownLocationOnStart: true,
+      },
       actions: [
+        {
+          type: 'file',
+          fileName: 'gps-tracker-locations.txt',
+        },
         {
           type: 'http',
           url: 'https://example.com/api/locations',

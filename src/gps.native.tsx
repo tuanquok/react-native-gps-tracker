@@ -9,8 +9,21 @@ export type HttpActionConfig = {
   timeoutMs?: number;
 };
 
+export type FileActionConfig = {
+  type: 'file';
+  fileName?: string;
+};
+
+export type AndroidTrackerConfig = {
+  intervalMs?: number;
+  distanceFilterMeters?: number;
+  providers?: Array<'gps' | 'network'>;
+  writeLastKnownLocationOnStart?: boolean;
+};
+
 export type GpsTrackerConfig = {
-  actions?: HttpActionConfig[];
+  actions?: Array<HttpActionConfig | FileActionConfig>;
+  android?: AndroidTrackerConfig;
 };
 
 export function configure(config: GpsTrackerConfig) {
