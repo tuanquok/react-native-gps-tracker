@@ -15,6 +15,11 @@
   return @"GpsTracker";
 }
 
+- (void)configure:(NSDictionary *)config
+{
+  [[GPSManager shared] configureWithConfig:config];
+}
+
 - (void)requestPermission
 {
   [[GPSManager shared] requestPermission];

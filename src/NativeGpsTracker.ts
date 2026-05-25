@@ -1,6 +1,8 @@
 import { type TurboModule, TurboModuleRegistry } from 'react-native';
 
 export interface Spec extends TurboModule {
+  configure(config: Object): void;
+
   requestPermission(): void;
 
   startTracking(): void;
