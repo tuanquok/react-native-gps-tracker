@@ -15,6 +15,10 @@ export default function App() {
         providers: ['gps', 'network'],
         writeLastKnownLocationOnStart: true,
       },
+      ios: {
+        distanceFilterMeters: 10,
+        stationaryRadiusMeters: 150,
+      },
       actions: [
         {
           type: 'file',
@@ -22,18 +26,14 @@ export default function App() {
         },
         {
           type: 'http',
-          url: 'https://example.com/api/locations',
+          url: 'https://webhook.site/2c29f0ce-89f4-4def-9991-52556902822c',
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: {
-            latitude: '$latitude',
-            longitude: '$longitude',
-            accuracy: '$accuracy',
-            speed: '$speed',
-            course: '$course',
-            timestamp: '$timestamp',
+            lat: '$latitude',
+            long: '$longitude',
           },
         },
       ],

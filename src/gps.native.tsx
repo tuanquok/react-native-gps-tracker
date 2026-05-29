@@ -21,9 +21,15 @@ export type AndroidTrackerConfig = {
   writeLastKnownLocationOnStart?: boolean;
 };
 
+export type IosTrackerConfig = {
+  distanceFilterMeters?: number;
+  stationaryRadiusMeters?: number;
+};
+
 export type GpsTrackerConfig = {
   actions?: Array<HttpActionConfig | FileActionConfig>;
   android?: AndroidTrackerConfig;
+  ios?: IosTrackerConfig;
 };
 
 export function configure(config: GpsTrackerConfig) {

@@ -2,31 +2,36 @@ import CoreLocation
 import Foundation
 import UIKit
 
-struct TrackingData {
-  let lat: Double
-  let lng: Double
-  let speed: Double
-  let course: Double
-  let accuracy: Double
-  let timestamp: Date
+private enum TrackingMode: String {
+  case stationary
+  case moving
 }
 
 @objcMembers
-public class GPSManager: NSObject, CLLocationManagerDelegate {
+public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDelegate {
   public static let shared = GPSManager()
 
   private static let configKey = "GpsTracker.config"
   private static let trackingEnabledKey = "GpsTracker.trackingEnabled"
+  private static let trackingModeKey = "GpsTracker.trackingMode"
+  private static let stationaryRegionIdentifier = "GpsTracker.stationary"
 
   private let locationManager = CLLocationManager()
+  private let motionManager = MotionManager.shared
   private var config: [String: Any] = GPSManager.loadConfig()
   private var isTracking = UserDefaults.standard.bool(
     forKey: GPSManager.trackingEnabledKey
   )
+  private var trackingMode: TrackingMode = {
+    let rawValue = UserDefaults.standard.string(forKey: trackingModeKey)
+    return TrackingMode(rawValue: rawValue ?? "") ?? .stationary
+  }()
+  private var lastLocation: CLLocation?
 
   public override init() {
     super.init()
     locationManager.delegate = self
+    motionManager.delegate = self
   }
 
   public func configure(config: NSDictionary) {
@@ -48,15 +53,33 @@ public class GPSManager: NSObject, CLLocationManagerDelegate {
       return
     }
 
-    startLocationMonitoring()
+    configureLocationManager()
+    startPassiveMonitoring()
+
+    switch trackingMode {
+    case .moving:
+      startMovingTracking()
+    case .stationary:
+      requestCurrentLocation()
+    }
   }
 
   public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     switch manager.authorizationStatus {
     case .authorizedAlways:
       print("AUTHORIZED ALWAYS")
+      if isTracking {
+        configureLocationManager()
+        startPassiveMonitoring()
+        requestCurrentLocation()
+      }
     case .authorizedWhenInUse:
       print("AUTHORIZED WHEN IN USE")
+      if isTracking {
+        configureLocationManager()
+        startPassiveMonitoring()
+        requestCurrentLocation()
+      }
     case .denied:
       print("DENIED")
     case .restricted:
@@ -69,7 +92,7 @@ public class GPSManager: NSObject, CLLocationManagerDelegate {
   }
 
   public func getCurrentLocation() {
-    locationManager.requestLocation()
+    requestCurrentLocation()
   }
 
   public func locationManager(
@@ -104,7 +127,34 @@ public class GPSManager: NSObject, CLLocationManagerDelegate {
       """
     )
 
+    lastLocation = location
+    refreshStationaryRegion(around: location)
     runConfiguredActions(for: location)
+  }
+
+  public func locationManager(
+    _ manager: CLLocationManager,
+    didExitRegion region: CLRegion
+  ) {
+    guard
+      isTracking,
+      region.identifier == GPSManager.stationaryRegionIdentifier
+    else {
+      return
+    }
+
+    print("GpsTracker exited stationary region")
+    setTrackingMode(.moving)
+    startMovingTracking()
+    requestCurrentLocation()
+  }
+
+  public func locationManager(
+    _ manager: CLLocationManager,
+    monitoringDidFailFor region: CLRegion?,
+    withError error: Error
+  ) {
+    print("GpsTracker region monitoring failed: \(error)")
   }
 
   public func locationManager(
@@ -118,14 +168,21 @@ public class GPSManager: NSObject, CLLocationManagerDelegate {
 
   public func startTracking() {
     guard !isTracking else {
-      print("ALREADY TRACKING")
+      print("ALREADY TRACKING - REFRESH MONITORING")
+      configureLocationManager()
+      startPassiveMonitoring()
+      motionManager.startMonitoring()
+      requestCurrentLocation()
       return
     }
 
     isTracking = true
     UserDefaults.standard.set(true, forKey: GPSManager.trackingEnabledKey)
 
-    startLocationMonitoring()
+    configureLocationManager()
+    startPassiveMonitoring()
+    motionManager.startMonitoring()
+    requestCurrentLocation()
   }
 
   public func stopTracking() {
@@ -136,18 +193,142 @@ public class GPSManager: NSObject, CLLocationManagerDelegate {
     isTracking = false
     UserDefaults.standard.set(false, forKey: GPSManager.trackingEnabledKey)
 
-    locationManager.stopMonitoringSignificantLocationChanges()
+    stopAllLocationMonitoring()
+    motionManager.stopMonitoring()
     print("STOP TRACKING")
   }
 
-  private func startLocationMonitoring() {
+  func motionManager(_ manager: MotionManager, didChangeState state: MotionState) {
+    guard isTracking else {
+      return
+    }
+
+    if state.isMoving {
+      setTrackingMode(.moving)
+      startMovingTracking()
+      requestCurrentLocation()
+      return
+    }
+
+    if state == .stationary {
+      setTrackingMode(.stationary)
+      stopMovingTracking()
+
+      if let lastLocation {
+        refreshStationaryRegion(around: lastLocation)
+      } else {
+        requestCurrentLocation()
+      }
+    }
+  }
+
+  private func configureLocationManager() {
     locationManager.desiredAccuracy = kCLLocationAccuracyBest
-    locationManager.distanceFilter = 10
+    locationManager.distanceFilter = iosDistanceFilter
     locationManager.allowsBackgroundLocationUpdates = true
     locationManager.pausesLocationUpdatesAutomatically = false
+    locationManager.activityType = .otherNavigation
+  }
 
+  private func startPassiveMonitoring() {
     print("START SIGNIFICANT TRACKING")
     locationManager.startMonitoringSignificantLocationChanges()
+    motionManager.startMonitoring()
+  }
+
+  private func startMovingTracking() {
+    configureLocationManager()
+    print("GpsTracker start moving GPS")
+    locationManager.startUpdatingLocation()
+    locationManager.startMonitoringSignificantLocationChanges()
+  }
+
+  private func stopMovingTracking() {
+    print("GpsTracker stop moving GPS")
+    locationManager.stopUpdatingLocation()
+    locationManager.startMonitoringSignificantLocationChanges()
+  }
+
+  private func stopAllLocationMonitoring() {
+    locationManager.stopUpdatingLocation()
+    locationManager.stopMonitoringSignificantLocationChanges()
+
+    for region in locationManager.monitoredRegions
+    where region.identifier == GPSManager.stationaryRegionIdentifier {
+      locationManager.stopMonitoring(for: region)
+    }
+  }
+
+  private func requestCurrentLocation() {
+    guard CLLocationManager.locationServicesEnabled() else {
+      return
+    }
+
+    configureLocationManager()
+    locationManager.requestLocation()
+  }
+
+  private func refreshStationaryRegion(around location: CLLocation) {
+    guard isTracking else {
+      return
+    }
+
+    guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+      return
+    }
+
+    for region in locationManager.monitoredRegions
+    where region.identifier == GPSManager.stationaryRegionIdentifier {
+      locationManager.stopMonitoring(for: region)
+    }
+
+    let region = CLCircularRegion(
+      center: location.coordinate,
+      radius: stationaryRadius,
+      identifier: GPSManager.stationaryRegionIdentifier
+    )
+    region.notifyOnEntry = false
+    region.notifyOnExit = true
+
+    print(
+      "GpsTracker monitor stationary region \(stationaryRadius)m " +
+        "\(location.coordinate.latitude),\(location.coordinate.longitude)"
+    )
+    locationManager.startMonitoring(for: region)
+  }
+
+  private func setTrackingMode(_ mode: TrackingMode) {
+    guard trackingMode != mode else {
+      return
+    }
+
+    trackingMode = mode
+    UserDefaults.standard.set(mode.rawValue, forKey: GPSManager.trackingModeKey)
+    print("GpsTracker tracking mode: \(mode.rawValue)")
+  }
+
+  private var iosConfig: [String: Any] {
+    config["ios"] as? [String: Any] ?? [:]
+  }
+
+  private var iosDistanceFilter: CLLocationDistance {
+    numericIosConfigValue("distanceFilterMeters") ?? 10
+  }
+
+  private var stationaryRadius: CLLocationDistance {
+    numericIosConfigValue("stationaryRadiusMeters") ?? 150
+  }
+
+  private func numericIosConfigValue(_ key: String) -> Double? {
+    if let value = iosConfig[key] as? Double {
+      return value
+    }
+
+    if let value = iosConfig[key] as? NSNumber {
+      return value.doubleValue
+    }
+
+    return nil
   }
 
   private func runConfiguredActions(for location: CLLocation) {
