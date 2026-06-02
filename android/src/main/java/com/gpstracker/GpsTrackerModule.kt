@@ -60,6 +60,9 @@ class GpsTrackerModule(private val reactContext: ReactApplicationContext) :
     GpsTrackerLocationService.requestSingleLocation(reactContext)
   }
 
+  override fun sync() {
+  }
+
   private fun foregroundPermissions(): List<String> {
     val permissions = mutableListOf(
       Manifest.permission.ACCESS_COARSE_LOCATION,

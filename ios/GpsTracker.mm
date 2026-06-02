@@ -59,4 +59,9 @@ RCT_EXPORT_MODULE()
   GpsTrackerSendVoid(GpsTrackerSharedManager(), @selector(getCurrentLocation));
 }
 
+- (void)sync
+{
+  GpsTrackerSendVoid(GpsTrackerSharedManager(), @selector(sync));
+}
+
 @end

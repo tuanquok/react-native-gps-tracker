@@ -10,6 +10,8 @@ export interface Spec extends TurboModule {
   stopTracking(): void;
 
   getCurrentLocation(): void;
+
+  sync(): void;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('GpsTracker');

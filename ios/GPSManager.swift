@@ -19,6 +19,9 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
 
   private let locationManager = CLLocationManager()
   private let motionManager = MotionManager.shared
+  private let httpQueue = GpsTrackerSQLiteQueue.shared
+  private let batchFlushStateQueue = DispatchQueue(label: "GpsTrackerBatchFlushState")
+  private var flushingBatchActionIndexes = Set<Int>()
   private var config: [String: Any] = GPSManager.loadConfig()
   private var isTracking = UserDefaults.standard.bool(
     forKey: GPSManager.trackingEnabledKey
@@ -98,6 +101,24 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
   @objc(getCurrentLocation)
   public func getCurrentLocation() {
     requestCurrentLocation()
+  }
+
+  @objc(sync)
+  public func sync() {
+    guard let actions = config["actions"] as? [[String: Any]] else {
+      return
+    }
+
+    for (index, action) in actions.enumerated() {
+      guard
+        action["type"] as? String == "http",
+        boolValue(action["batchSync"]) == true
+      else {
+        continue
+      }
+
+      flushBatchHttpAction(action, actionIndex: index)
+    }
   }
 
   public func locationManager(
@@ -345,24 +366,54 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
 
     let locationPayload = makeLocationPayload(location)
 
-    for action in actions {
+    for (index, action) in actions.enumerated() {
       guard action["type"] as? String == "http" else {
         continue
       }
 
-      sendHttpAction(action, locationPayload: locationPayload)
+      runHttpAction(action, actionIndex: index, locationPayload: locationPayload)
+    }
+  }
+
+  private func runHttpAction(
+    _ action: [String: Any],
+    actionIndex: Int,
+    locationPayload: [String: Any]
+  ) {
+    let body = renderLocationBody(action, locationPayload: locationPayload)
+    guard boolValue(action["batchSync"]) == true else {
+      sendHttpAction(action, body: body)
+      return
+    }
+
+    guard let locationBody = body as? [String: Any] else {
+      print("GpsTracker batch action skipped: body must be a JSON object")
+      return
+    }
+
+    let queueSize = enqueueBatchLocation(locationBody, actionIndex: actionIndex)
+    guard boolValue(action["autoSync"], defaultValue: true) else {
+      return
+    }
+
+    let requiredBatchSize = requiredAutoSyncBatchSize(action)
+    print("GpsTracker batch queued: \(queueSize)/\(requiredBatchSize)")
+    if queueSize >= requiredBatchSize {
+      flushBatchHttpAction(action, actionIndex: actionIndex)
     }
   }
 
   private func sendHttpAction(
     _ action: [String: Any],
-    locationPayload: [String: Any]
+    body: Any,
+    completion: ((Bool) -> Void)? = nil
   ) {
     guard
       let urlString = action["url"] as? String,
       let url = URL(string: urlString)
     else {
       print("GpsTracker http action skipped: invalid url")
+      completion?(false)
       return
     }
 
@@ -380,13 +431,11 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     }
 
-    let bodyTemplate = action["body"] as? [String: Any] ?? locationPayload
-    let body = renderTemplate(bodyTemplate, with: locationPayload)
-
     do {
       request.httpBody = try JSONSerialization.data(withJSONObject: body)
     } catch {
       print("GpsTracker http action skipped: invalid body \(error)")
+      completion?(false)
       return
     }
 
@@ -404,13 +453,109 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
 
       if let error = error {
         print("GpsTracker http action failed: \(error)")
+        completion?(false)
         return
       }
 
       if let response = response as? HTTPURLResponse {
         print("GpsTracker http action completed: \(response.statusCode)")
+        completion?((200 ... 299).contains(response.statusCode))
+        return
       }
+
+      completion?(false)
     }.resume()
+  }
+
+  private func enqueueBatchLocation(_ locationBody: [String: Any], actionIndex: Int) -> Int {
+    httpQueue.enqueue(actionIndex: actionIndex, body: locationBody)
+  }
+
+  private func flushBatchHttpAction(_ action: [String: Any], actionIndex: Int) {
+    let queueSize = httpQueue.count(actionIndex: actionIndex)
+    let requiredBatchSize = requiredAutoSyncBatchSize(action)
+    guard requiredBatchSize > 0, queueSize >= requiredBatchSize else {
+      print("GpsTracker batch sync skipped: \(queueSize)/\(requiredBatchSize) queued")
+      return
+    }
+
+    guard beginBatchFlush(actionIndex: actionIndex) else {
+      print("GpsTracker batch sync skipped: request already in flight")
+      return
+    }
+
+    let batchSize = resolveBatchSize(action, queueSize: queueSize)
+    let batch = httpQueue.loadBatch(actionIndex: actionIndex, limit: batchSize)
+    guard !batch.isEmpty else {
+      endBatchFlush(actionIndex: actionIndex)
+      return
+    }
+
+    let locations = batch.map(\.body)
+    let body = renderBatchBody(action, locations: locations)
+
+    print("GpsTracker batch sync sending: \(batch.count) locations")
+    sendHttpAction(action, body: body) { success in
+      defer {
+        self.endBatchFlush(actionIndex: actionIndex)
+      }
+
+      guard success else {
+        return
+      }
+
+      self.httpQueue.delete(ids: batch.map(\.id))
+      print("GpsTracker batch sync deleted: \(batch.count) locations")
+    }
+  }
+
+  private func resolveBatchSize(_ action: [String: Any], queueSize: Int) -> Int {
+    guard let maxBatchSize = intValue(action["maxBatchSize"]), maxBatchSize > 0 else {
+      return queueSize
+    }
+
+    return min(maxBatchSize, queueSize)
+  }
+
+  private func requiredAutoSyncBatchSize(_ action: [String: Any]) -> Int {
+    if let maxBatchSize = intValue(action["maxBatchSize"]), maxBatchSize > 0 {
+      return maxBatchSize
+    }
+
+    return max(intValue(action["autoSyncThreshold"]) ?? 1, 1)
+  }
+
+  private func beginBatchFlush(actionIndex: Int) -> Bool {
+    batchFlushStateQueue.sync {
+      guard !flushingBatchActionIndexes.contains(actionIndex) else {
+        return false
+      }
+
+      flushingBatchActionIndexes.insert(actionIndex)
+      return true
+    }
+  }
+
+  private func endBatchFlush(actionIndex: Int) {
+    batchFlushStateQueue.sync {
+      flushingBatchActionIndexes.remove(actionIndex)
+    }
+  }
+
+  private func renderLocationBody(
+    _ action: [String: Any],
+    locationPayload: [String: Any]
+  ) -> Any {
+    let bodyTemplate = action["body"] ?? locationPayload
+    return renderTemplate(bodyTemplate, with: locationPayload)
+  }
+
+  private func renderBatchBody(_ action: [String: Any], locations: [[String: Any]]) -> Any {
+    guard let batchBodyTemplate = action["batchBody"] else {
+      return locations
+    }
+
+    return renderBatchTemplate(batchBodyTemplate, locations: locations)
   }
 
   private func makeLocationPayload(_ location: CLLocation) -> [String: Any] {
@@ -449,6 +594,46 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
     return value
   }
 
+  private func renderBatchTemplate(_ value: Any, locations: [[String: Any]]) -> Any {
+    if let string = value as? String {
+      return string == "$locations" ? locations : string
+    }
+
+    if let dictionary = value as? [String: Any] {
+      return dictionary.mapValues { renderBatchTemplate($0, locations: locations) }
+    }
+
+    if let array = value as? [Any] {
+      return array.map { renderBatchTemplate($0, locations: locations) }
+    }
+
+    return value
+  }
+
+  private func boolValue(_ value: Any?, defaultValue: Bool = false) -> Bool {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return defaultValue
+  }
+
+  private func intValue(_ value: Any?) -> Int? {
+    if let value = value as? Int {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.intValue
+    }
+
+    return nil
+  }
+
   private static func loadConfig() -> [String: Any] {
     guard
       let data = UserDefaults.standard.data(forKey: configKey),
@@ -474,4 +659,5 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
       print("GpsTracker configure failed: \(error)")
     }
   }
+
 }

@@ -1768,7 +1768,7 @@ SPEC CHECKSUMS:
   FBLazyVector: e053802577a711add20e45bbbf5dd1180b6ca62e
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: eb93e2f488219332457c3c4eafd2738ddc7e80b8
-  GpsTracker: 51bc3cff7479e8e87357e96f232cacfbc59af093
+  GpsTracker: 12fda1e7bc035f3a55bf9cb6a86b89f8ab03d29d
   hermes-engine: b5c9cfbe6415f1b0b24759f2942c8f33e9af6347
   RCT-Folly: e78785aa9ba2ed998ea4151e314036f6c49e6d82
   RCTDeprecation: cf39863b43871c2031050605fb884019b6193910
