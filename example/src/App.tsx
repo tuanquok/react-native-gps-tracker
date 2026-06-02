@@ -26,7 +26,7 @@ export default function App() {
         },
         {
           type: 'http',
-          url: 'https://webhook.site/2c29f0ce-89f4-4def-9991-52556902822c',
+          url: 'https://webhook.site/2ad471f0-7406-4fcb-9553-541fa0963b11',
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

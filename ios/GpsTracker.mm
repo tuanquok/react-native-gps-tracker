@@ -1,8 +1,28 @@
 #import "GpsTracker.h"
 #import <CoreLocation/CoreLocation.h>
-#import "GpsTracker-Swift.h"
+#import <React/RCTBridgeModule.h>
+#import <objc/message.h>
+
+static id GpsTrackerSharedManager(void)
+{
+  Class managerClass = NSClassFromString(@"GpsTrackerGPSManager");
+  if (managerClass == Nil || ![managerClass respondsToSelector:@selector(shared)]) {
+    return nil;
+  }
+
+  return ((id (*)(id, SEL))objc_msgSend)(managerClass, @selector(shared));
+}
+
+static void GpsTrackerSendVoid(id target, SEL selector)
+{
+  if (target != nil && [target respondsToSelector:selector]) {
+    ((void (*)(id, SEL))objc_msgSend)(target, selector);
+  }
+}
 
 @implementation GpsTracker
+
+RCT_EXPORT_MODULE()
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
@@ -10,34 +30,33 @@
     return std::make_shared<facebook::react::NativeGpsTrackerSpecJSI>(params);
 }
 
-+ (NSString *)moduleName
-{
-  return @"GpsTracker";
-}
-
 - (void)configure:(NSDictionary *)config
 {
-  [[GPSManager shared] configureWithConfig:config];
+  id manager = GpsTrackerSharedManager();
+  SEL selector = @selector(configureWithConfig:);
+  if (manager != nil && [manager respondsToSelector:selector]) {
+    ((void (*)(id, SEL, NSDictionary *))objc_msgSend)(manager, selector, config);
+  }
 }
 
 - (void)requestPermission
 {
-  [[GPSManager shared] requestPermission];
+  GpsTrackerSendVoid(GpsTrackerSharedManager(), @selector(requestPermission));
 }
 
 - (void)startTracking
 {
-  [[GPSManager shared] startTracking];
+  GpsTrackerSendVoid(GpsTrackerSharedManager(), @selector(startTracking));
 }
 
 - (void)stopTracking
 {
-  [[GPSManager shared] stopTracking];
+  GpsTrackerSendVoid(GpsTrackerSharedManager(), @selector(stopTracking));
 }
 
 - (void)getCurrentLocation
 {
-  [[GPSManager shared] getCurrentLocation];
+  GpsTrackerSendVoid(GpsTrackerSharedManager(), @selector(getCurrentLocation));
 }
 
 @end

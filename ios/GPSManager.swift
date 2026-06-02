@@ -8,6 +8,7 @@ private enum TrackingMode: String {
 }
 
 @objcMembers
+@objc(GpsTrackerGPSManager)
 public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDelegate {
   public static let shared = GPSManager()
 
@@ -34,6 +35,7 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
     motionManager.delegate = self
   }
 
+  @objc(configureWithConfig:)
   public func configure(config: NSDictionary) {
     guard let nextConfig = config as? [String: Any] else {
       print("GpsTracker configure failed: invalid config")
@@ -44,10 +46,12 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
     GPSManager.saveConfig(nextConfig)
   }
 
+  @objc(requestPermission)
   public func requestPermission() {
     locationManager.requestAlwaysAuthorization()
   }
 
+  @objc(restoreTrackingIfNeeded)
   public func restoreTrackingIfNeeded() {
     guard isTracking else {
       return
@@ -91,6 +95,7 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
     }
   }
 
+  @objc(getCurrentLocation)
   public func getCurrentLocation() {
     requestCurrentLocation()
   }
@@ -166,6 +171,7 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
     }
   }
 
+  @objc(startTracking)
   public func startTracking() {
     guard !isTracking else {
       print("ALREADY TRACKING - REFRESH MONITORING")
@@ -185,6 +191,7 @@ public class GPSManager: NSObject, CLLocationManagerDelegate, MotionManagerDeleg
     requestCurrentLocation()
   }
 
+  @objc(stopTracking)
   public func stopTracking() {
     guard isTracking else {
       return
