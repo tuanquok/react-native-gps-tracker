@@ -3,6 +3,7 @@ package com.gpstracker
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.gpstracker.storage.GpsTrackerStore
 
 class GpsTrackerBootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {

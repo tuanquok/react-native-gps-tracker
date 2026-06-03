@@ -8,6 +8,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.modules.core.PermissionAwareActivity
 import com.facebook.react.modules.core.PermissionListener
+import com.gpstracker.storage.GpsTrackerStore
 
 class GpsTrackerModule(private val reactContext: ReactApplicationContext) :
   NativeGpsTrackerSpec(reactContext),
@@ -61,6 +62,7 @@ class GpsTrackerModule(private val reactContext: ReactApplicationContext) :
   }
 
   override fun sync() {
+    GpsTrackerActionRunner.sync(reactContext)
   }
 
   private fun foregroundPermissions(): List<String> {

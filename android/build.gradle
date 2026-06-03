@@ -1,13 +1,14 @@
 buildscript {
   ext.GpsTracker = [
     kotlinVersion: "2.0.21",
+    roomVersion: "2.6.1",
     minSdkVersion: 24,
     compileSdkVersion: 36,
     targetSdkVersion: 36
   ]
 
   ext.getExtOrDefault = { prop ->
-    if (rootProject.ext.has(prop)) {
+    if (rootProject.ext.has(prop) && rootProject.ext.get(prop) != null) {
       return rootProject.ext.get(prop)
     }
 
@@ -26,20 +27,19 @@ buildscript {
   }
 }
 
-
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
-
+apply plugin: "kotlin-kapt"
 apply plugin: "com.facebook.react"
 
 android {
   namespace "com.gpstracker"
 
-  compileSdkVersion getExtOrDefault("compileSdkVersion")
+  compileSdk getExtOrDefault("compileSdkVersion") as int
 
   defaultConfig {
-    minSdkVersion getExtOrDefault("minSdkVersion")
-    targetSdkVersion getExtOrDefault("targetSdkVersion")
+    minSdk getExtOrDefault("minSdkVersion") as int
+    targetSdk getExtOrDefault("targetSdkVersion") as int
   }
 
   buildFeatures {
@@ -65,4 +65,6 @@ android {
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation "androidx.core:core-ktx:1.13.1"
+  implementation "androidx.room:room-runtime:${getExtOrDefault('roomVersion')}"
+  kapt "androidx.room:room-compiler:${getExtOrDefault('roomVersion')}"
 }

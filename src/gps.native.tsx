@@ -15,8 +15,8 @@ export type JsonValue =
  * Khi `batchSync` la `false` hoac khong khai bao, moi location moi se duoc
  * gui thanh mot request rieng.
  *
- * Khi `batchSync` la `true`, iOS se luu location vao SQLite queue va chi gui
- * request khi queue du so diem cau hinh. Android hien van giu hanh vi gui ngay.
+ * Khi `batchSync` la `true`, native se luu location vao queue va chi gui
+ * request khi queue du so diem cau hinh.
  */
 export type HttpActionConfig = {
   /**
@@ -96,7 +96,7 @@ export type HttpActionConfig = {
   /**
    * Bat che do gom location thanh batch truoc khi gui.
    *
-   * Tren iOS, moi location se duoc render theo `body` roi luu vao SQLite.
+   * Moi location se duoc render theo `body` roi luu vao native queue.
    * Khi du nguong, native gui mot request batch.
    */
   batchSync?: boolean;
@@ -105,7 +105,7 @@ export type HttpActionConfig = {
    * So location can gom cho moi request batch.
    *
    * Vi du `maxBatchSize: 5` nghia la iOS gom du 5 location moi gui 1 request.
-   * Sau response thanh cong `2xx`, native xoa dung batch da gui khoi SQLite.
+   * Sau response thanh cong `2xx`, native xoa dung batch da gui khoi queue.
    */
   maxBatchSize?: number;
 };
@@ -238,7 +238,7 @@ export function getCurrentLocation() {
 /**
  * Flush queue batch HTTP thu cong.
  *
- * Huu ich khi `autoSync` la `false`. Tren iOS, ham nay chi gui khi queue du
+ * Huu ich khi `autoSync` la `false`. Native chi gui khi queue du
  * nguong batch hien tai.
  */
 export function sync() {

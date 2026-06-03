@@ -10,14 +10,14 @@ export default function App() {
   useEffect(() => {
     configure({
       android: {
-        intervalMs: 3000,
-        distanceFilterMeters: 0,
+        intervalMs: 1000,
+        distanceFilterMeters: 5,
         providers: ['gps', 'network'],
         writeLastKnownLocationOnStart: true,
       },
       ios: {
         distanceFilterMeters: 100,
-        stationaryRadiusMeters: 150,
+        stationaryRadiusMeters: 50,
       },
       actions: [
         {
@@ -28,7 +28,7 @@ export default function App() {
           // Loai action: gui du lieu location len API.
           type: 'http',
           // Endpoint nhan du lieu location.
-          url: 'https://webhook.site/afeccc43-dcd6-42d2-a1cb-f4657df582a8',
+          url: 'http://192.168.100.63:3000/api/shipper-locations',
           // HTTP method dung de gui request.
           method: 'POST',
           // Bat che do gom location vao queue truoc khi gui.
@@ -36,8 +36,8 @@ export default function App() {
           // Tu dong gui request khi queue du so diem cau hinh.
           autoSync: true,
           // So diem toi thieu de auto sync khi khong cau hinh maxBatchSize.
-          autoSyncThreshold: 5,
-          // Gom du 5 diem thi gui 1 request, moi request toi da 5 diem.
+          autoSyncThreshold: 2,
+          // Gom du 2 diem thi gui 1 request, moi request toi da 2 diem.
           maxBatchSize: 10,
           // Header gui kem request.
           headers: {
@@ -45,9 +45,9 @@ export default function App() {
           },
           // Template cho tung location duoc luu vao queue.
           body: {
+            accuracy: '$accuracy',
             lat: '$latitude',
             long: '$longitude',
-            accuracy: '$accuracy',
             timestamp: '$timestamp',
           },
           // Template cho request batch, $locations la mang cac body da gom.
