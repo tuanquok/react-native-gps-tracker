@@ -1,6 +1,6 @@
 {
   "name": "react-native-gps-tracker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Background GPS tracking lib for React Native with support for IOS and Android",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
